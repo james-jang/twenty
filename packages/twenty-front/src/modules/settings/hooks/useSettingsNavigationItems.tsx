@@ -1,3 +1,4 @@
+import { doNotTranslate } from 'twenty-shared/i18n';
 import { SettingsPath } from 'twenty-shared/types';
 
 import { useAuth } from '@/auth/hooks/useAuth';
@@ -56,6 +57,9 @@ export type SettingsNavigationItem = {
   subItems?: SettingsNavigationItem[];
   modifier?: NavigationDrawerItemModifier;
 };
+
+const IGNIA_SOURCE_URL =
+  'https://github.com/james-jang/twenty/tree/ignia-v2.57.1-1';
 
 const useSettingsNavigationItems = (): SettingsNavigationSection[] => {
   const { t } = useLingui();
@@ -219,6 +223,13 @@ const useSettingsNavigationItems = (): SettingsNavigationSection[] => {
               getDocumentationUrl({ locale: currentWorkspaceMember?.locale }),
             ),
           Icon: IconHelpCircle,
+        },
+        {
+          label: doNotTranslate(
+            'Ignia CRM, built on Twenty. Source for this version',
+          ),
+          onClick: () => openUrlInNewTab(IGNIA_SOURCE_URL),
+          Icon: IconCode,
         },
         {
           label: t`Logout`,
