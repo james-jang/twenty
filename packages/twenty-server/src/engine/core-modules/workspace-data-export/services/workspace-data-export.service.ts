@@ -13,6 +13,7 @@ import { FileStorageService } from 'src/engine/core-modules/file-storage/service
 import { FileUrlService } from 'src/engine/core-modules/file/file-url/file-url.service';
 import { FileEntity } from 'src/engine/core-modules/file/entities/file.entity';
 import { FILE_STATUS } from 'src/engine/core-modules/file/types/file-status.type';
+import { ForbiddenError } from 'src/engine/core-modules/graphql/utils/graphql-errors.util';
 import { RecordExportQueryService } from 'src/engine/core-modules/record-export/services/record-export-query.service';
 import { type WorkspaceDataExportDTO } from 'src/engine/core-modules/workspace-data-export/dtos/workspace-data-export.dto';
 import { WorkspaceDataExportStatus } from 'src/engine/core-modules/workspace-data-export/enums/workspace-data-export-status.enum';
@@ -101,6 +102,8 @@ export class WorkspaceDataExportService {
   }
 
   async findMany(workspaceId: string): Promise<WorkspaceDataExportDTO[]> {
+    await this.findWorkspaceOrThrow(workspaceId);
+
     const files = await this.fileRepository.find(workspaceId, {
       where: { path: Like(`${FileFolder.WorkspaceDataExport}/%`) },
       order: { createdAt: 'DESC' },
@@ -206,6 +209,11 @@ export class WorkspaceDataExportService {
         message: `Workspace ${workspaceId} not found`,
         code: 'WORKSPACE_NOT_FOUND',
       });
+    }
+
+    // Ignia P5: the admin export requires the workspace's support-access opt-in.
+    if (!workspace.allowImpersonation) {
+      throw new ForbiddenError('This workspace has not enabled support access');
     }
 
     return workspace;
