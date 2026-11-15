@@ -59,7 +59,7 @@ export type SettingsNavigationItem = {
 };
 
 const IGNIA_SOURCE_URL =
-  'https://github.com/james-jang/twenty/tree/ignia-v2.57.1-1';
+  'https://github.com/james-jang/twenty/tree/ignia-v2.57.1-2';
 
 const useSettingsNavigationItems = (): SettingsNavigationSection[] => {
   const { t } = useLingui();
