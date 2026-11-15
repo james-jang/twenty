@@ -6,7 +6,6 @@ import { createHash } from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { ExtractJwt, type JwtFromRequestFunction } from 'passport-jwt';
 import { isDefined } from 'twenty-shared/utils';
-import { z } from 'zod';
 
 import {
   AuthException,
@@ -14,29 +13,17 @@ import {
 } from 'src/engine/core-modules/auth/auth.exception';
 import { type JwtPayload } from 'src/engine/core-modules/auth/types/jwt-payload.type';
 import { JwtTokenTypeEnum } from 'src/engine/core-modules/auth/types/jwt-token-type.enum';
-import {
-  JWT_ASYMMETRIC_ALGORITHM,
-  JWT_LEGACY_ALGORITHM,
-} from 'src/engine/core-modules/jwt/constants/jwt-algorithm.constant';
+import { JWT_ASYMMETRIC_ALGORITHM } from 'src/engine/core-modules/jwt/constants/jwt-algorithm.constant';
 import { JwtKeyManagerService } from 'src/engine/core-modules/jwt/services/jwt-key-manager.service';
 import { SigningKeyVerifyCounterService } from 'src/engine/core-modules/jwt/services/signing-key-verify-counter.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { decodeJwtHeader } from 'src/engine/core-modules/jwt/utils/decode-jwt-header.util';
-import { decodeJwtPayload } from 'src/engine/core-modules/jwt/utils/decode-jwt-payload.util';
 import { isAsymmetricJwtHeader } from 'src/engine/core-modules/jwt/utils/is-asymmetric-jwt-header.util';
 
 type ResolvedVerificationKey = {
   key: string;
-  algorithm: typeof JWT_LEGACY_ALGORITHM | typeof JWT_ASYMMETRIC_ALGORITHM;
+  algorithm: typeof JWT_ASYMMETRIC_ALGORITHM;
 };
-
-const APP_SECRET_BODY_WORKSPACE_SCHEMA = z.object({
-  workspaceId: z.string().min(1),
-});
-
-const APP_SECRET_BODY_USER_SCHEMA = z.object({
-  userId: z.string().min(1),
-});
 
 @Injectable()
 export class JwtWrapperService {
@@ -102,28 +89,10 @@ export class JwtWrapperService {
       return { key: publicKeyPem, algorithm: JWT_ASYMMETRIC_ALGORITHM };
     }
 
-    const payload = decodeJwtPayload<JwtPayload>(rawToken);
-
-    if (!isDefined(payload)) {
-      throw new AuthException(
-        'Token invalid.',
-        AuthExceptionCode.UNAUTHENTICATED,
-      );
-    }
-
-    const appSecretBody = this.extractAppSecretBody(payload);
-
-    if (!isDefined(appSecretBody)) {
-      throw new AuthException(
-        'Invalid token type',
-        AuthExceptionCode.INVALID_JWT_TOKEN_TYPE,
-      );
-    }
-
-    return {
-      key: this.generateAppSecret(payload.type, appSecretBody),
-      algorithm: JWT_LEGACY_ALGORITHM,
-    };
+    throw new AuthException(
+      'Token invalid.',
+      AuthExceptionCode.UNAUTHENTICATED,
+    );
   }
 
   async verifyJwtToken(
@@ -153,33 +122,6 @@ export class JwtWrapperService {
 
       return verified;
     } catch (error) {
-      // API_KEY tokens created before 12/12/2025 were accidentally signed
-      // with ACCESS type instead of API_KEY. Fall back to the legacy ACCESS
-      // secret for backward compatibility.
-      // See https://github.com/twentyhq/twenty/pull/16504
-      if (
-        payload.type === JwtTokenTypeEnum.API_KEY &&
-        algorithm === JWT_LEGACY_ALGORITHM
-      ) {
-        const appSecretBody = this.extractAppSecretBody(payload);
-
-        if (isDefined(appSecretBody)) {
-          try {
-            const verified = jwt.verify(
-              token,
-              this.generateAppSecret(JwtTokenTypeEnum.ACCESS, appSecretBody),
-              { ...options, algorithms: [JWT_LEGACY_ALGORITHM] },
-            );
-
-            this.recordVerifyForAlgorithm(JWT_LEGACY_ALGORITHM, header);
-
-            return verified;
-          } catch {
-            throw this.toAuthException(error);
-          }
-        }
-      }
-
       throw this.toAuthException(error);
     }
   }
@@ -214,22 +156,6 @@ export class JwtWrapperService {
     }
 
     this.signingKeyVerifyCounterService.recordLegacyVerify();
-  }
-
-  private extractAppSecretBody(payload: JwtPayload): string | undefined {
-    const workspaceParse = APP_SECRET_BODY_WORKSPACE_SCHEMA.safeParse(payload);
-
-    if (workspaceParse.success) {
-      return workspaceParse.data.workspaceId;
-    }
-
-    const userParse = APP_SECRET_BODY_USER_SCHEMA.safeParse(payload);
-
-    if (userParse.success) {
-      return userParse.data.userId;
-    }
-
-    return undefined;
   }
 
   private toAuthException(error: unknown): AuthException {
