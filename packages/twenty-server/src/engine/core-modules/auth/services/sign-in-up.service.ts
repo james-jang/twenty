@@ -825,7 +825,10 @@ export class SignInUpService {
           };
         });
 
-      if (isWorkEmailFound) {
+      if (
+        isWorkEmailFound &&
+        this.twentyConfigService.get('ALLOW_REQUESTS_TO_TWENTY_ICONS')
+      ) {
         const inferredLogoFileId = await this.uploadInferredWorkspaceLogo({
           email,
           workspaceId,
